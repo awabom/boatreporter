@@ -1,0 +1,35 @@
+#!/bin/sh
+
+MMSI="$1"
+SENDTO=report@marinetraffic.com
+
+# Process output from candump analyzer and send report
+candump -T 10000 can0 | candump2analyzer | analyzer 2> /dev/null | 
+while read -r line; do
+        [ -z "$LAT" ] && LAT=$(echo $line | grep -oP "129029 .*Latitude = \K[-]?\d+(\.\d+)?")
+        [ -z "$LON" ] && LON=$(echo $line | grep -oP "129029 .*Longitude = \K[-]?\d+(\.\d+)?")
+        [ -z "$SPEEDMS" ] && SPEEDMS=$(echo $line | grep -oP "129026 .*SOG = \K\d+(\.\d+)?")
+        [ -z "$COURSE" ] && COURSE=$(echo $line | grep -oP "129026 .*COG = \K\d+(\.\d+)?")
+        [ -z "$TIME" ] && TIME=$(echo $line | grep -oP ".*129029 .*Time = \K[\d\:]+")
+        [ -z "$DATE" ] && DATE=$(echo $line | grep -oP ".*129029 .*Date = \K[\d\.]+")
+
+        # Check if we have all needed data for a report
+        # If so, send report and break input loop
+        if [ "$LAT" != "" ] && [ "$LON" != "" ] && [ "$SPEEDMS" != "" ] && [ "$COURSE" != "" ] && [ "$TIME" != "" ] && [ "$DATE" != "" ]; then
+                # Convert some values
+                SPEEDKNOTS=$(echo $SPEEDMS | awk '{ printf("%.1f", $1*1.94384449);}')
+                TIMESTAMP="$(echo $DATE | sed s/[\.]/\-/g) $TIME"
+
+                REPORT="MMSI=$MMSI
+LAT=$LAT
+LON=$LON
+SPEED=$SPEEDKNOTS
+COURSE=$COURSE
+TIMESTAMP=$TIMESTAMP"
+
+                # Send report via e-mail
+                echo "$REPORT" | sendmail $SENDTO
+
+                break
+        fi
+done
