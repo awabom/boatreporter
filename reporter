@@ -1,7 +1,7 @@
 #!/bin/sh
 
 MMSI="$1"
-SENDTO=report@marinetraffic.com
+SENDTO="$2" # e.g. report@marinetraffic.com
 
 # Process output from candump analyzer and send report
 candump -T 10000 can0 | candump2analyzer | analyzer 2> /dev/null | 

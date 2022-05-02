@@ -1,0 +1,45 @@
+#!/bin/bash
+
+MMSI="$1"
+SENDTO="$2" # e.g. report@marinetraffic.com
+
+# Wait max 10 sec for 1 line of GPRMC from localhost kplex tcp server
+GPRMC=$(timeout 10 cat < /dev/tcp/127.0.0.1/10110 | grep -m 1 "...RMC,")
+# Split into parts
+IFS=','
+PARTS=($GPRMC)
+IFS=' '
+
+# Is the valid flag = A?
+[[ ${PARTS[2]} == "A" ]] || echo "No valid GPRMC" || exit 0
+
+# South and West is negative degrees
+[[ ${PARTS[4]} == "S" ]] && LATPREFIX="-" || LATPREFIX=""
+[[ ${PARTS[6]} == "W" ]] && LONPREFIX="-" || LONPREFIX=""
+
+# Convert concatenated degrees+minutes to decimal degrees
+GPLAT=${PARTS[3]}
+LAT=${LATPREFIX}$( echo $GPLAT | awk -v OFMT=%.5f '{print int($GPLAT / 100) + ($
+GPLON=${PARTS[5]}
+LON=${LONPREFIX}$( echo $GPLON | awk -v OFMT=%.5f '{print int($GPLAT / 100) + ($
+# Pick parts from nmea date and time - hardcoded to 20XX years
+GPTIME=${PARTS[1]}
+GPDATE=${PARTS[9]}
+TIMESTAMP="20${GPDATE:4:2}-${GPDATE:2:2}-${GPDATE:0:2} ${GPTIME:0:2}:${GPTIME:2$
+# Speed in knots
+SPEED=${PARTS[7]}
+# Course should be without decimals
+GPCOURSE=${PARTS[8]}
+COURSE=$( echo $GPCOURSE | awk '{print int($GPCOURSE)}' )
+
+# Build and send report
+REPORT="MMSI=$MMSI
+LAT=$LAT
+LON=$LON
+SPEED=$SPEED
+COURSE=$COURSE
+TIMESTAMP=$TIMESTAMP
+"
+
+# Send report via e-mail
+echo "$REPORT" | sendmail $SENDTO
