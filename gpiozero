@@ -3,7 +3,7 @@
 PIN=$1
 PINPATH=/sys/class/gpio/gpio$PIN
 
-[[ -f $PINPATH ]] || echo $PIN > /sys/class/gpio/export
+[[ -e $PINPATH ]] || echo $PIN > /sys/class/gpio/export
 
 echo in > $PINPATH/direction
 
