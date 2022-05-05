@@ -1,0 +1,12 @@
+#!/bin/bash
+
+PIN=$1
+PINPATH=/sys/class/gpio/gpio$PIN
+
+[[ -f $PINPATH ]] || echo $PIN > /sys/class/gpio/export
+
+echo in > $PINPATH/direction
+
+PINVALUE=$( cat "$PINPATH/value" )
+
+[[ "$PINVALUE" != "1" ]] && exit 0 || exit 1
