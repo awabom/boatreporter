@@ -6,31 +6,37 @@ SENDTO="$2" # e.g. report@marinetraffic.com
 # Wait max 10 sec for 1 line of GPRMC from localhost kplex tcp server
 GPRMC=$(timeout 10 cat < /dev/tcp/127.0.0.1/10110 | grep -m 1 "...RMC,")
 # Split into parts
+PREVIFS=IFS
 IFS=','
 PARTS=($GPRMC)
-IFS=' '
+IFS=$PREVIFS
 
 # Is the valid flag = A?
-[[ ${PARTS[2]} == "A" ]] || echo "No valid GPRMC" || exit 0
+[[ ${PARTS[2]} != "A" ]] && echo "No valid GPRMC received" && exit 1
 
 # South and West is negative degrees
 [[ ${PARTS[4]} == "S" ]] && LATPREFIX="-" || LATPREFIX=""
 [[ ${PARTS[6]} == "W" ]] && LONPREFIX="-" || LONPREFIX=""
 
 # Convert concatenated degrees+minutes to decimal degrees
-GPLAT=${PARTS[3]}
-LAT=${LATPREFIX}$( echo $GPLAT | awk -v OFMT=%.5f '{print int($GPLAT / 100) + ($
-GPLON=${PARTS[5]}
-LON=${LONPREFIX}$( echo $GPLON | awk -v OFMT=%.5f '{print int($GPLAT / 100) + ($
+GPLATDEG=${PARTS[3]:0:2}
+GPLATMIN=${PARTS[3]:2}
+LAT=${LATPREFIX}$( echo $GPLATDEG $GPLATMIN | awk -v OFMT=%.5f '{print $1 + $2 / 60 }' )
+GPLONDEG=${PARTS[5]:0:3}
+GPLONMIN=${PARTS[5]:3}
+LON=${LONPREFIX}$( echo $GPLONDEG $GPLONMIN | awk -v OFMT=%.5f '{print $1 + $2 / 60 }' )
+
 # Pick parts from nmea date and time - hardcoded to 20XX years
 GPTIME=${PARTS[1]}
 GPDATE=${PARTS[9]}
-TIMESTAMP="20${GPDATE:4:2}-${GPDATE:2:2}-${GPDATE:0:2} ${GPTIME:0:2}:${GPTIME:2$
+TIMESTAMP="20${GPDATE:4:2}-${GPDATE:2:2}-${GPDATE:0:2} ${GPTIME:0:2}:${GPTIME:2:2}:${GPTIME:4:2}"
+
 # Speed in knots
 SPEED=${PARTS[7]}
+
 # Course should be without decimals
 GPCOURSE=${PARTS[8]}
-COURSE=$( echo $GPCOURSE | awk '{print int($GPCOURSE)}' )
+COURSE=$( echo $GPCOURSE | awk '{print int($0)}' )
 
 # Build and send report
 REPORT="MMSI=$MMSI
